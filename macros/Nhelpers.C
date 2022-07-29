@@ -1,3 +1,6 @@
+#ifndef nhelpers
+#define nhelpers
+
 #include "TROOT.h"
 #include <ROOT/RVec.hxx>
 #include "TH1D.h"
@@ -6,8 +9,6 @@
 #include <TFitResult.h>
 #include <bits/stdc++.h>
 #include <TRandom3.h>
-#include <ROOT/RDF/RInterface.hxx>
-#include <TF1.h>
 
 using namespace ROOT;
 
@@ -313,50 +314,4 @@ int rand_oneZero() {
     }
 }
 
-
-float get_weight(float pT, UChar_t nConstituents, RVec<float> bins, RVec<TF1> fits) {
-    int idx, bin_size = bins.size();
-    float result;
-    
-    for (int i=1; i < bin_size; i++) {
-        if (pT > bins[i-1] && pT < bins[i]) {
-            idx = i;
-            break;
-        }
-    }
-    
-    result = fits[idx].Eval(nConstituents);
-    
-    return result;
-}
-
-ROOT::RDataFrame create_weights(ROOT::RDataFrame df_DT, ROOT::RDataFrame df_MC, RVec<float> bins, int cnt) {
-    auto MC_hist = df_MC.Histo2D({'mcHist', 'mcHistTitle', cnt, bins, 100u, 0., 100.}, 'pTtag', 'Jet_nConstituents');
-    auto DT_hist = df_DT.Histo2D({'dtHist', 'dtHistTitle', cnt, bins, 100u, 0., 100.}, 'pTtag', 'Jet_nConstituents');
-    
-    RVec<TF1> fits;
-    
-    for (int i=1; i <= cnt; i++) {
-        auto h1 = MC_hist -> ProjectionY('mcProj', i, i);
-        auto h2 = DT_hist -> ProjectionY('dtProj', i, i);
-        
-        if ((h1->Integral() != 0.0) && (h2->Integral() != 0.0)) {
-            h1->Scale(1/(h1 -> Integral()));
-            h2->Scale(1/(h2 -> Integral()));
-            
-            h1 -> Divide(h2);
-            h1 -> Fit('chebyshev4', 'S');
-            
-            fits.push_back(h1->GetFunction("chebyshev4"));
-        }
-        else {
-            auto func = TF1(); 
-            fits.push_back(func);
-        }
-    }
-    
-    ROOT::RDataFrame df = df_MC.Define('dtWeights', get_weight, '{pTtag, Jet_nConstituents, bins, fits}');
-    
-    return df;
-    
-}
+#endif
